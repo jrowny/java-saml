@@ -51,7 +51,7 @@ public class Response {
 		String decodedS = new String(decodedB);				
 		loadXml(decodedS);	
 	}
-	
+		
         public boolean isValid() throws Exception {
             NodeList nodes = xmlDoc.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
 

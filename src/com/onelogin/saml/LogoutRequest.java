@@ -16,64 +16,60 @@ import javax.xml.stream.XMLStreamWriter;
 
 import org.apache.commons.codec.binary.Base64;
 
-import com.onelogin.AccountSettings;
 import com.onelogin.AppSettings;
 
-public class AuthRequest {
+public class LogoutRequest {
 	
 	private String id;
 	private String issueInstant;
 	private AppSettings appSettings;
-	private AccountSettings accountSettings;
 	private static final String utf8 = "UTF-8";
 	
-	public AuthRequest(AppSettings appSettings, AccountSettings accountSettings){		
-		this.appSettings = appSettings;
-		this.accountSettings = accountSettings;
+	public LogoutRequest(String issuer){
+		
+		//get rid of this object, it's pretty pointless
+		this.appSettings = new AppSettings();
+		this.appSettings.setIssuer(issuer);
+		
 		id="_"+UUID.randomUUID().toString();		
 		SimpleDateFormat simpleDf = new SimpleDateFormat("yyyy-MM-dd'T'H:mm:ss");
 		issueInstant = simpleDf.format(new Date());		
 	}
 	
 	//Returns the full URL where you should redirect to
-	public String getRequest() throws XMLStreamException, IOException {
+	public String getRequest(String logoutUrl,
+							 String nameID, 
+							 String format, 
+							 String sessionIndex) throws XMLStreamException, IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();		
 		XMLOutputFactory factory = XMLOutputFactory.newInstance();
 		XMLStreamWriter writer = factory.createXMLStreamWriter(baos);
 					
-		writer.writeStartElement("samlp", "AuthnRequest", "urn:oasis:names:tc:SAML:2.0:protocol");
-		writer.writeNamespace("samlp","urn:oasis:names:tc:SAML:2.0:protocol");
-		
+		writer.writeStartElement("saml2p", "LogoutRequest", "urn:oasis:names:tc:SAML:2.0:protocol");
+		writer.writeNamespace("saml2p","urn:oasis:names:tc:SAML:2.0:protocol");		
 		writer.writeAttribute("ID", id);
 		writer.writeAttribute("Version", "2.0");
 		writer.writeAttribute("IssueInstant", this.issueInstant + "Z");
-		writer.writeAttribute("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
-		writer.writeAttribute("AssertionConsumerServiceURL", this.appSettings.getAssertionConsumerServiceUrl());
 		
-		writer.writeStartElement("saml","Issuer","urn:oasis:names:tc:SAML:2.0:assertion");
-		writer.writeNamespace("saml","urn:oasis:names:tc:SAML:2.0:assertion");
-		writer.writeCharacters(this.appSettings.getIssuer());
-		writer.writeEndElement();
-		
-		writer.writeStartElement("samlp", "NameIDPolicy", "urn:oasis:names:tc:SAML:2.0:protocol");
-		
-		writer.writeAttribute("Format", this.appSettings.getNamedIdFormat());
-		writer.writeAttribute("AllowCreate", "true");
-		writer.writeEndElement();
-		
-		writer.writeStartElement("samlp","RequestedAuthnContext","urn:oasis:names:tc:SAML:2.0:protocol");
-		
-		writer.writeAttribute("Comparison", "exact");
-		writer.writeEndElement();
-		
-		writer.writeStartElement("saml","AuthnContextClassRef","urn:oasis:names:tc:SAML:2.0:assertion");
-		writer.writeNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
-		writer.writeCharacters("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
-		writer.writeEndElement();
+			writer.writeStartElement("saml2","Issuer","urn:oasis:names:tc:SAML:2.0:assertion");
+			writer.writeNamespace("saml2","urn:oasis:names:tc:SAML:2.0:assertion");
+			writer.writeCharacters(this.appSettings.getIssuer());
+			writer.writeEndElement();
+	
+			writer.writeStartElement("saml", "NameID", "urn:oasis:names:tc:SAML:2.0:assertion");	
+			writer.writeNamespace("saml","urn:oasis:names:tc:SAML:2.0:assertion");	
+			writer.writeAttribute("Format", format);
+			writer.writeCharacters(nameID);
+			writer.writeEndElement();
+			
+			writer.writeStartElement("saml2p", "SessionIndex", "urn:oasis:names:tc:SAML:2.0:protocol");
+			writer.writeCharacters(sessionIndex);
+			writer.writeEndElement();
 		
 		writer.writeEndElement();
 		writer.flush();		
 	
+		//TODO: this code should go into a superclass or something because it's used by AUthRequest as well
 		// Compress the bytes		
 		ByteArrayOutputStream deflatedBytes = new ByteArrayOutputStream();
 		Deflater deflater = new Deflater(Deflater.DEFLATED, true);
@@ -87,7 +83,7 @@ public class AuthRequest {
 		// URL Encode the bytes
 		String encodedRequest = URLEncoder.encode(new String(encoded, Charset.forName(utf8)), utf8);
 		
-		return accountSettings.getIdp_sso_target_url()+"?SAMLRequest=" + getRidOfCRLF(encodedRequest);
+		return logoutUrl+"?SAMLRequest=" + getRidOfCRLF(encodedRequest);
 	}
 	
  	public static String getRidOfCRLF(String what) {
