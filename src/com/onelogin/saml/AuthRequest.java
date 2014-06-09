@@ -31,7 +31,7 @@ public class AuthRequest {
 		this.appSettings = appSettings;
 		this.accountSettings = accountSettings;
 		id="_"+UUID.randomUUID().toString();		
-		SimpleDateFormat simpleDf = new SimpleDateFormat("yyyy-MM-dd'T'H:mm:ss");
+		SimpleDateFormat simpleDf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 		issueInstant = simpleDf.format(new Date());		
 	}
 	
