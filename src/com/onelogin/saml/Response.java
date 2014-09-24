@@ -2,9 +2,18 @@ package com.onelogin.saml;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Arrays;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.xml.XMLConstants;
 import javax.xml.crypto.dsig.XMLSignature;
 import javax.xml.crypto.dsig.XMLSignatureFactory;
@@ -19,7 +28,9 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import com.onelogin.AccountSettings;
+
 import java.lang.reflect.Method;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
@@ -28,6 +39,9 @@ public class Response {
 	private Document xmlDoc;
 	private AccountSettings accountSettings;
 	private Certificate certificate;
+	
+	Response() {
+	}
 	
 	public Response(AccountSettings accountSettings) throws CertificateException {
 		this.accountSettings = accountSettings;
@@ -80,27 +94,67 @@ public class Response {
 
 		return nodes.item(0).getTextContent();
 	}
-        
-        private void tagIdAttributes(Document xmlDoc) {
-            NodeList nodeList = xmlDoc.getElementsByTagName("*");
-            for (int i = 0; i < nodeList.getLength(); i++) {
-                Node node = nodeList.item(i);
-                if (node.getNodeType() == Node.ELEMENT_NODE) {
-                    if (node.getAttributes().getNamedItem("ID") != null) {
-                        ((Element) node).setIdAttribute("ID", true);
-                    }
-                }
-            }
-        }
+	
+	public String getDecryptedAssertion(String privateKey, String encryptedSymKey, String cipherText) throws GeneralSecurityException{
+		
+		//Load in the private key
+		PrivateKey key = loadPrivateKey(privateKey);
+		
+		Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding");
 
-        private boolean setIdAttributeExists() {
-            for (Method method : Element.class.getDeclaredMethods()) {
-                if (method.getName().equals("setIdAttribute")) {
-                    return true;
+		//Decrypt the key
+		cipher.init(Cipher.DECRYPT_MODE, key); //privKey stored earlier
+		byte[] symKey = cipher.doFinal( Base64.decodeBase64( encryptedSymKey ) );
+		
+		//Get the cipher'd  data base64 decoded
+		byte[] cipherBytes = Base64.decodeBase64(cipherText);
+		
+		//Get the IV value, which is the first 16 bytes of the cipherBytes
+		AlgorithmParameterSpec iv = new IvParameterSpec(cipherBytes, 0, 16);
+		
+		//Create a secret key based on symKey
+		SecretKeySpec secretSauce = new SecretKeySpec(symKey, "AES");
+		
+		//Now we have all the ingredients to decrypt
+		cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+		cipher.init(Cipher.DECRYPT_MODE, secretSauce, iv);
+		
+		//Do the decryption
+		byte[] decrypedBytes = cipher.doFinal(cipherBytes);
+		
+		//Strip off the the first 16 bytes because those are the IV
+		return new String( decrypedBytes, 16, decrypedBytes.length-16 );
+	}
+	
+	private static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
+	    byte[] clear = Base64.decodeBase64(key64);
+	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
+	    KeyFactory fact = KeyFactory.getInstance("RSA");
+	    PrivateKey priv = fact.generatePrivate(keySpec);
+	    Arrays.fill(clear, (byte) 0);
+	    return priv;
+	}
+        
+    private void tagIdAttributes(Document xmlDoc) {
+        NodeList nodeList = xmlDoc.getElementsByTagName("*");
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node = nodeList.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                if (node.getAttributes().getNamedItem("ID") != null) {
+                    ((Element) node).setIdAttribute("ID", true);
                 }
             }
-            return false;
         }
+    }
+
+    private boolean setIdAttributeExists() {
+        for (Method method : Element.class.getDeclaredMethods()) {
+            if (method.getName().equals("setIdAttribute")) {
+                return true;
+            }
+        }
+        return false;
+    }
 
         
 }
