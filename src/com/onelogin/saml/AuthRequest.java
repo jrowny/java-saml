@@ -100,27 +100,23 @@ public class AuthRequest {
 		deflaterStream.finish();
 		
 		// Base64 Encode the bytes
-		byte[] encoded = Base64.encodeBase64Chunked(deflatedBytes.toByteArray());
-		
-		//samlRequest.SigAlg = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
-	    //samlRequest.Signature = self.signRequest(querystring.stringify(samlRequest));
-		
+		byte[] encoded = Base64.encodeBase64Chunked(deflatedBytes.toByteArray());		
 		
 		// URL Encode the bytes
 		String encodedRequest = URLEncoder.encode(new String(encoded, Charset.forName(utf8)), utf8);
 		String finalSignatureValue = "";
 		
+		//If a key was provided, sign it!
 		if(key.length() > 0){
 			String encodedSigAlg = URLEncoder.encode("http://www.w3.org/2000/09/xmldsig#rsa-sha1", utf8);
-			//SAMLRequest=" + getRidOfCRLF(encodedRequest)
 			
 			Signature signature = Signature.getInstance("SHA1withRSA");
 			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest) + "&SigAlg=" + encodedSigAlg;
 			signature.initSign( loadPrivateKey( key ) );
-			signature.update( strSignature.getBytes("utf-8") );
-			String signatureBase64Encoded = Base64.encodeBase64String( signature.sign() );
+			signature.update( strSignature.getBytes(utf8) );
+			String encodedSignature = URLEncoder.encode( Base64.encodeBase64String( signature.sign() ) , utf8);
 			
-			finalSignatureValue = "&SigAlg=" + encodedSigAlg + "&Signature=" + signatureBase64Encoded;
+			finalSignatureValue = "&SigAlg=" + encodedSigAlg + "&Signature=" + encodedSignature;
 		}
 		
 		return accountSettings.getIdp_sso_target_url()+"?SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
