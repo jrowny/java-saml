@@ -4,7 +4,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
+import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
 import java.util.zip.Deflater;
@@ -35,8 +42,14 @@ public class AuthRequest {
 		issueInstant = simpleDf.format(new Date());		
 	}
 	
+
+	
+	public String getRequest() throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException{
+		return getRequest(false, "");
+	}
+	
 	//Returns the full URL where you should redirect to
-	public String getRequest() throws XMLStreamException, IOException {
+	public String getRequest(boolean includeRequestedAuthnContext, String key) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();		
 		XMLOutputFactory factory = XMLOutputFactory.newInstance();
 		XMLStreamWriter writer = factory.createXMLStreamWriter(baos);
@@ -61,17 +74,22 @@ public class AuthRequest {
 		writer.writeAttribute("AllowCreate", "true");
 		writer.writeEndElement();
 		
-		writer.writeStartElement("samlp","RequestedAuthnContext","urn:oasis:names:tc:SAML:2.0:protocol");
+		if(includeRequestedAuthnContext){
+			
+			writer.writeStartElement("samlp","RequestedAuthnContext","urn:oasis:names:tc:SAML:2.0:protocol");
+			
+			writer.writeAttribute("Comparison", "exact");
+			writer.writeEndElement();
+			
+			writer.writeStartElement("saml","AuthnContextClassRef","urn:oasis:names:tc:SAML:2.0:assertion");
+			writer.writeNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
+			writer.writeCharacters("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
+			writer.writeEndElement();
+
+		}
 		
-		writer.writeAttribute("Comparison", "exact");
 		writer.writeEndElement();
 		
-		writer.writeStartElement("saml","AuthnContextClassRef","urn:oasis:names:tc:SAML:2.0:assertion");
-		writer.writeNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
-		writer.writeCharacters("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
-		writer.writeEndElement();
-		
-		writer.writeEndElement();
 		writer.flush();		
 	
 		// Compress the bytes		
@@ -84,13 +102,40 @@ public class AuthRequest {
 		// Base64 Encode the bytes
 		byte[] encoded = Base64.encodeBase64Chunked(deflatedBytes.toByteArray());
 		
+		//samlRequest.SigAlg = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
+	    //samlRequest.Signature = self.signRequest(querystring.stringify(samlRequest));
+		
+		
 		// URL Encode the bytes
 		String encodedRequest = URLEncoder.encode(new String(encoded, Charset.forName(utf8)), utf8);
+		String finalSignatureValue = "";
 		
-		return accountSettings.getIdp_sso_target_url()+"?SAMLRequest=" + getRidOfCRLF(encodedRequest);
+		if(key.length() > 0){
+			String encodedSigAlg = URLEncoder.encode("http://www.w3.org/2000/09/xmldsig#rsa-sha1", utf8);
+			//SAMLRequest=" + getRidOfCRLF(encodedRequest)
+			
+			Signature signature = Signature.getInstance("SHA1withRSA");
+			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest) + "&SigAlg=" + encodedSigAlg;
+			signature.initSign( loadPrivateKey( key ) );
+			signature.update( strSignature.getBytes("utf-8") );
+			String signatureBase64Encoded = Base64.encodeBase64String( signature.sign() );
+			
+			finalSignatureValue = "&SigAlg=" + encodedSigAlg + "&Signature=" + signatureBase64Encoded;
+		}
+		
+		return accountSettings.getIdp_sso_target_url()+"?SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
 	}
 	
- 	public static String getRidOfCRLF(String what) {
+	private static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
+	    byte[] clear = Base64.decodeBase64(key64);
+	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
+	    KeyFactory fact = KeyFactory.getInstance("RSA");
+	    PrivateKey priv = fact.generatePrivate(keySpec);
+	    Arrays.fill(clear, (byte) 0);
+	    return priv;
+	}
+	
+	private static String getRidOfCRLF(String what) {
 		String lf = "%0D";
 		String cr = "%0A";
 		String now = lf;
