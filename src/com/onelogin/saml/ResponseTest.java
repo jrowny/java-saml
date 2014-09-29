@@ -15,7 +15,7 @@ public class ResponseTest {
 		String encryptedSymKey = "";
 		String cipherText = "";
 		
-		String decryptedAssertion = test.getDecryptedAssertion(privateKey, encryptedSymKey, cipherText);
+		String decryptedAssertion = test.getDecryptedAssertion(privateKey, encryptedSymKey, cipherText, "");
 
 		System.out.println( decryptedAssertion );
 		

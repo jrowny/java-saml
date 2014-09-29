@@ -111,15 +111,26 @@ public class AuthRequest {
 			String encodedSigAlg = URLEncoder.encode("http://www.w3.org/2000/09/xmldsig#rsa-sha1", utf8);
 			
 			Signature signature = Signature.getInstance("SHA1withRSA");
+			
+			
 			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest) + "&SigAlg=" + encodedSigAlg;
+			
+			
 			signature.initSign( loadPrivateKey( key ) );
 			signature.update( strSignature.getBytes(utf8) );
+			
 			String encodedSignature = URLEncoder.encode( Base64.encodeBase64String( signature.sign() ) , utf8);
 			
 			finalSignatureValue = "&SigAlg=" + encodedSigAlg + "&Signature=" + encodedSignature;
 		}
 		
-		return accountSettings.getIdp_sso_target_url()+"?SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
+		String appender = "?";
+		
+		if(accountSettings.getIdp_sso_target_url().indexOf("?") >= 0){
+			appender = "&";
+		}
+		
+		return accountSettings.getIdp_sso_target_url()+appender+"SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
 	}
 	
 	private static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {

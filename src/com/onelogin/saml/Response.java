@@ -95,7 +95,7 @@ public class Response {
 		return nodes.item(0).getTextContent();
 	}
 	
-	public String getDecryptedAssertion(String privateKey, String encryptedSymKey, String cipherText) throws GeneralSecurityException{
+	public String getDecryptedAssertion(String privateKey, String encryptedSymKey, String cipherText, String encMethod) throws GeneralSecurityException{
 		
 		//Load in the private key
 		PrivateKey key = loadPrivateKey(privateKey);
@@ -115,8 +115,41 @@ public class Response {
 		//Create a secret key based on symKey
 		SecretKeySpec secretSauce = new SecretKeySpec(symKey, "AES");
 		
+		String cipherMethod = "";
+		
+		//TODO: this should be a switch statement or an enum but Java 1.6 doesn't support string switches
+		String[] AES_CBC_PKCS5Padding = {"http://www.w3.org/2001/04/xmlenc#aes128-cbc",
+			"http://www.w3.org/2001/04/xmlenc#aes192-cbc",
+			"http://www.w3.org/2001/04/xmlenc#aes256-cbc",
+			"http://xmlns.webpki.org/keygen2/1.0#algorithm.aes.cbc.pkcs5"};
+		
+		String[] AES_CBC_NoPadding = {"internal:AES/CBC/NoPadding"};
+		
+		String[] AESWrap = {"http://www.w3.org/2001/04/xmlenc#kw-aes128",
+				"http://www.w3.org/2001/04/xmlenc#kw-aes256"};
+		
+		String[] AES_ECB_PKCS5Padding = {"http://xmlns.webpki.org/keygen2/1.0#algorithm.aes.ecb.pkcs5"};
+		
+		String[] AES_ECB_NoPadding = {"http://xmlns.webpki.org/keygen2/1.0#algorithm.aes.ecb.nopad"};
+		
+		if(java.util.Arrays.asList(AES_CBC_PKCS5Padding).indexOf(encMethod) >= 0 ){			
+			cipherMethod = "AES/CBC/PKCS5Padding";			
+		}else if(java.util.Arrays.asList(AES_CBC_NoPadding).indexOf(encMethod) >= 0){
+			cipherMethod = "AES/CBC/NoPadding";	
+		}else if(java.util.Arrays.asList(AESWrap).indexOf(encMethod) >= 0){
+			cipherMethod = "AESWrap";	
+		}else if(java.util.Arrays.asList(AES_ECB_PKCS5Padding).indexOf(encMethod) >= 0){
+			cipherMethod = "AES/ECB/PKCS5Padding";	
+		}else if(java.util.Arrays.asList(AES_ECB_NoPadding).indexOf(encMethod) >= 0){
+			cipherMethod = "AES/ECB/NoPadding";	
+		}else{
+			
+			//default to this for now?
+			cipherMethod = "AES/CBC/PKCS5Padding";	
+		}
+		
 		//Now we have all the ingredients to decrypt
-		cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+		cipher = Cipher.getInstance( cipherMethod );
 		cipher.init(Cipher.DECRYPT_MODE, secretSauce, iv);
 		
 		//Do the decryption
