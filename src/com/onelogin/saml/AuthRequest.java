@@ -43,9 +43,14 @@ public class AuthRequest {
 	}
 	
 
-	
+	//Overload for backwards compatibility
 	public String getRequest() throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException{
 		return getRequest(false, "");
+	}
+	
+	//Overload for backwards compatibility
+	public String getRequest(boolean includeRequestedAuthnContext) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException{
+		return getRequest(includeRequestedAuthnContext, "");
 	}
 	
 	//Returns the full URL where you should redirect to
@@ -62,6 +67,7 @@ public class AuthRequest {
 		writer.writeAttribute("IssueInstant", this.issueInstant + "Z");
 		writer.writeAttribute("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
 		writer.writeAttribute("AssertionConsumerServiceURL", this.appSettings.getAssertionConsumerServiceUrl());
+		writer.writeAttribute("Destination", this.accountSettings.getIdp_sso_target_url());
 		
 		writer.writeStartElement("saml","Issuer","urn:oasis:names:tc:SAML:2.0:assertion");
 		writer.writeNamespace("saml","urn:oasis:names:tc:SAML:2.0:assertion");
