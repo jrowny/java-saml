@@ -2,14 +2,11 @@ package com.onelogin.saml;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.security.KeyFactory;
+import java.security.GeneralSecurityException; 
 import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Arrays;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -98,7 +95,7 @@ public class Response {
 	public String getDecryptedAssertion(String privateKey, String encryptedSymKey, String cipherText, String encMethod) throws GeneralSecurityException{
 		
 		//Load in the private key
-		PrivateKey key = loadPrivateKey(privateKey);
+		PrivateKey key = Certificate.loadPrivateKey(privateKey);
 		
 		Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding");
 
@@ -157,15 +154,6 @@ public class Response {
 		
 		//Strip off the the first 16 bytes because those are the IV
 		return new String( decrypedBytes, 16, decrypedBytes.length-16 );
-	}
-	
-	private static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
-	    byte[] clear = Base64.decodeBase64(key64);
-	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
-	    KeyFactory fact = KeyFactory.getInstance("RSA");
-	    PrivateKey priv = fact.generatePrivate(keySpec);
-	    Arrays.fill(clear, (byte) 0);
-	    return priv;
 	}
         
     private void tagIdAttributes(Document xmlDoc) {
