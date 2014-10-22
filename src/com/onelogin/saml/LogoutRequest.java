@@ -4,6 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
+import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
+import java.security.Signature;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
@@ -40,7 +43,16 @@ public class LogoutRequest {
 	public String getRequest(String logoutUrl,
 							 String nameID, 
 							 String format, 
-							 String sessionIndex) throws XMLStreamException, IOException {
+							 String sessionIndex) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException {
+		return getRequest(logoutUrl, nameID,  format,  sessionIndex, "");
+	}
+	
+	//Returns the full URL where you should redirect to
+	public String getRequest(String logoutUrl,
+							 String nameID, 
+							 String format, 
+							 String sessionIndex,
+							 String key) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();		
 		XMLOutputFactory factory = XMLOutputFactory.newInstance();
 		XMLStreamWriter writer = factory.createXMLStreamWriter(baos);
@@ -49,6 +61,7 @@ public class LogoutRequest {
 		writer.writeNamespace("saml2p","urn:oasis:names:tc:SAML:2.0:protocol");		
 		writer.writeAttribute("ID", id);
 		writer.writeAttribute("Version", "2.0");
+		writer.writeAttribute("Destination", logoutUrl);
 		writer.writeAttribute("IssueInstant", this.issueInstant + "Z");
 		
 			writer.writeStartElement("saml2","Issuer","urn:oasis:names:tc:SAML:2.0:assertion");
@@ -82,8 +95,33 @@ public class LogoutRequest {
 		
 		// URL Encode the bytes
 		String encodedRequest = URLEncoder.encode(new String(encoded, Charset.forName(utf8)), utf8);
+		String finalSignatureValue = "";
 		
-		return logoutUrl+"?SAMLRequest=" + getRidOfCRLF(encodedRequest);
+		//If a key was provided, sign it!
+		if(key.length() > 0){
+			String encodedSigAlg = URLEncoder.encode("http://www.w3.org/2000/09/xmldsig#rsa-sha1", utf8);
+			
+			Signature signature = Signature.getInstance("SHA1withRSA");
+			
+			
+			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest) + "&SigAlg=" + encodedSigAlg;
+			
+			
+			signature.initSign( Certificate.loadPrivateKey( key ) );
+			signature.update( strSignature.getBytes(utf8) );
+			
+			String encodedSignature = URLEncoder.encode( Base64.encodeBase64String( signature.sign() ) , utf8);
+			
+			finalSignatureValue = "&SigAlg=" + encodedSigAlg + "&Signature=" + encodedSignature;
+		}
+		
+		String appender = "?";
+		
+		if(logoutUrl.indexOf("?") >= 0){
+			appender = "&";
+		}
+		
+		return logoutUrl+appender+"SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
 	}
 	
  	public static String getRidOfCRLF(String what) {

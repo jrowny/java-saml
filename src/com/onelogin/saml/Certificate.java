@@ -1,9 +1,14 @@
 package com.onelogin.saml;
 
 import java.io.ByteArrayInputStream;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Arrays;
 
 import org.apache.commons.codec.binary.Base64;
 
@@ -33,5 +38,14 @@ public class Certificate {
 
 	public X509Certificate getX509Cert() {
 		return x509Cert;
-	}						
+	}		
+	
+	public static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
+	    byte[] clear = Base64.decodeBase64(key64);
+	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
+	    KeyFactory fact = KeyFactory.getInstance("RSA");
+	    PrivateKey priv = fact.generatePrivate(keySpec);
+	    Arrays.fill(clear, (byte) 0);
+	    return priv;
+	}
 }

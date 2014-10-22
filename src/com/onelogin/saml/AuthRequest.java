@@ -6,12 +6,8 @@ import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
 import java.security.Signature;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
 import java.util.zip.Deflater;
@@ -122,7 +118,7 @@ public class AuthRequest {
 			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest) + "&SigAlg=" + encodedSigAlg;
 			
 			
-			signature.initSign( loadPrivateKey( key ) );
+			signature.initSign( Certificate.loadPrivateKey( key ) );
 			signature.update( strSignature.getBytes(utf8) );
 			
 			String encodedSignature = URLEncoder.encode( Base64.encodeBase64String( signature.sign() ) , utf8);
@@ -139,14 +135,7 @@ public class AuthRequest {
 		return accountSettings.getIdp_sso_target_url()+appender+"SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
 	}
 	
-	private static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
-	    byte[] clear = Base64.decodeBase64(key64);
-	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
-	    KeyFactory fact = KeyFactory.getInstance("RSA");
-	    PrivateKey priv = fact.generatePrivate(keySpec);
-	    Arrays.fill(clear, (byte) 0);
-	    return priv;
-	}
+	
 	
 	private static String getRidOfCRLF(String what) {
 		String lf = "%0D";
