@@ -41,16 +41,21 @@ public class AuthRequest {
 
 	//Overload for backwards compatibility
 	public String getRequest() throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException{
-		return getRequest(false, "");
+		return getRequest(false, "", "");
 	}
 	
 	//Overload for backwards compatibility
 	public String getRequest(boolean includeRequestedAuthnContext) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException{
-		return getRequest(includeRequestedAuthnContext, "");
+		return getRequest(includeRequestedAuthnContext, "", "");
+	}
+	
+	//Overload for backwards compatibility
+	public String getRequest(boolean includeRequestedAuthnContext, String key) throws InvalidKeyException, XMLStreamException, IOException, GeneralSecurityException{
+		return getRequest(includeRequestedAuthnContext, key, "");
 	}
 	
 	//Returns the full URL where you should redirect to
-	public String getRequest(boolean includeRequestedAuthnContext, String key) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException {
+	public String getRequest(boolean includeRequestedAuthnContext, String key, String relayState) throws XMLStreamException, IOException, InvalidKeyException, GeneralSecurityException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();		
 		XMLOutputFactory factory = XMLOutputFactory.newInstance();
 		XMLStreamWriter writer = factory.createXMLStreamWriter(baos);
@@ -106,6 +111,7 @@ public class AuthRequest {
 		
 		// URL Encode the bytes
 		String encodedRequest = URLEncoder.encode(new String(encoded, Charset.forName(utf8)), utf8);
+		String encodedRelayState = URLEncoder.encode(relayState, utf8);
 		String finalSignatureValue = "";
 		
 		//If a key was provided, sign it!
@@ -115,7 +121,13 @@ public class AuthRequest {
 			Signature signature = Signature.getInstance("SHA1withRSA");
 			
 			
-			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest) + "&SigAlg=" + encodedSigAlg;
+			String strSignature = "SAMLRequest=" + getRidOfCRLF(encodedRequest);
+			
+			if(relayState.length() > 0){
+				strSignature += "&RelayState=" + encodedRelayState;
+			}
+			
+			strSignature += "&SigAlg=" + encodedSigAlg;
 			
 			
 			signature.initSign( Certificate.loadPrivateKey( key ) );
@@ -132,7 +144,13 @@ public class AuthRequest {
 			appender = "&";
 		}
 		
-		return accountSettings.getIdp_sso_target_url()+appender+"SAMLRequest=" + getRidOfCRLF(encodedRequest) + finalSignatureValue;
+		String url = accountSettings.getIdp_sso_target_url()+appender+"SAMLRequest=" + getRidOfCRLF(encodedRequest);
+		if(relayState.length() > 0){
+			url += "&RelayState=" + encodedRelayState;
+		}
+		url += finalSignatureValue;
+		
+		return url;
 	}
 	
 	
