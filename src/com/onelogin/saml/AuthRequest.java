@@ -9,6 +9,7 @@ import java.security.InvalidKeyException;
 import java.security.Signature;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
@@ -35,7 +36,8 @@ public class AuthRequest {
 		this.accountSettings = accountSettings;
 		id="_"+UUID.randomUUID().toString();		
 		SimpleDateFormat simpleDf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-		issueInstant = simpleDf.format(new Date());		
+		simpleDf.setTimeZone(TimeZone.getTimeZone("UTC"));
+		issueInstant = simpleDf.format(new Date());
 	}
 	
 
